@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-practice-deploy-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-practice-backend
+  template:
+    metadata:
+      labels:
+        app: my-practice-backend
+    spec:
+      containers:
+        - name: my-practice-backend
+          image: kartavyanirwel/task-backend
+          imagePullPolicy: Always
+          env:
+            - name: SERVER_PORT
+              value: "8080"
+            - name: APP_ENV
+              value: "k8s"
+            - name: CORS_ORIGIN
+              value: "http://localhost:5173"
+            - name: DB_HOST
+              value: my-practice-db
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: tasktracker
+            - name: DB_USER
+              value: tasks
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-practice-db-secret
+                  key: MYSQL_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-practice-deploy-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-practice-frontend
+  template:
+    metadata:
+      labels:
+        app: my-practice-frontend
+    spec:
+      containers:
+      - name: my-practice-frontend
+        image: kartavyanirwel/task-frontend
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 128Mi
+            cpu: 500m
+        ports:
+        - containerPort: 80
+          protocol: TCP

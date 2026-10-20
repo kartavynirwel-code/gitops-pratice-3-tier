@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-practice-db-init
+data:
+  schema.sql: |
+    CREATE DATABASE IF NOT EXISTS tasktracker;
+    USE tasktracker;
+
+    CREATE TABLE IF NOT EXISTS tasks (
+      id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+      title       VARCHAR(120) NOT NULL,
+      description VARCHAR(500),
+      status      VARCHAR(20)  NOT NULL DEFAULT 'TODO',
+      created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-practice-db
+  labels:
+    app: my-practice-db
+spec:
+  clusterIP: None
+  selector:
+    app: my-practice-db
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-practice-db
+spec:
+  serviceName: my-practice-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-practice-db
+  template:
+    metadata:
+      labels:
+        app: my-practice-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_DATABASE
+              value: tasktracker
+            - name: MYSQL_USER
+              value: tasks
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-practice-db-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-practice-db-secret
+                  key: MYSQL_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: init
+          configMap:
+            name: my-practice-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 2Gi
