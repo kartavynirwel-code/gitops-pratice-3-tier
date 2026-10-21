@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: my-practice-backend
-          image: kartavyanirwel/task-backend:v1
+          image: kartavyanirwel/task-backend:db595ce
           imagePullPolicy: Always
           env:
             - name: SERVER_PORT
